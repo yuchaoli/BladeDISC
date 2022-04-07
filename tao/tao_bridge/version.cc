@@ -24,12 +24,12 @@
 
 extern "C" void print_tao_build_info() {
   std::cout << "BUILD INFO: " << std::endl
-            << "TAO_BUILD_VERSION: " << TAO_BUILD_VERSION << std::endl
-            << "TAO_BUILD_GIT_BRANCH: " << TAO_BUILD_GIT_BRANCH << std::endl
-            << "TAO_BUILD_GIT_HEAD: " << TAO_BUILD_GIT_HEAD << std::endl
-            << "TAO_BUILD_HOST: " << TAO_BUILD_HOST << std::endl
-            << "TAO_BUILD_IP: " << TAO_BUILD_IP << std::endl
-            << "TAO_BUILD_TIME: " << TAO_BUILD_TIME << std::endl
+            << "DISC_BUILD_VERSION: " << DISC_BUILD_VERSION << std::endl
+            << "DISC_BUILD_GIT_BRANCH: " << DISC_BUILD_GIT_BRANCH << std::endl
+            << "DISC_BUILD_GIT_HEAD: " << DISC_BUILD_GIT_HEAD << std::endl
+            << "DISC_BUILD_HOST: " << DISC_BUILD_HOST << std::endl
+            << "DISC_BUILD_IP: " << DISC_BUILD_IP << std::endl
+            << "DISC_BUILD_TIME: " << DISC_BUILD_TIME << std::endl
             << std::endl
             << "ABI INFO: " << std::endl
             << "_GLIBCXX_USE_CXX11_ABI: " << ABI_STR << std::endl

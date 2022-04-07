@@ -211,9 +211,9 @@ void TaoCompInfoCollector::Init() {
     info_["begin_us"] = tao_p_->StartTimeUS();
 
     // tao bridge version info
-    info_["tao_build_version"] = std::string(TAO_BUILD_VERSION);
-    info_["tao_build_commit"] = std::string(TAO_BUILD_GIT_HEAD);
-    info_["tao_build_time"] = std::string(TAO_BUILD_TIME);
+    info_["tao_build_version"] = std::string(DISC_BUILD_VERSION);
+    info_["tao_build_commit"] = std::string(DISC_BUILD_GIT_HEAD);
+    info_["tao_build_time"] = std::string(DISC_BUILD_TIME);
 
     // tao compiler version
     get_binary_version(info_, "compiler_version",

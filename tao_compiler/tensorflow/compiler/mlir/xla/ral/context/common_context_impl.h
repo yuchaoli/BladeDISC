@@ -16,11 +16,7 @@
 #define ALIGN_BYTES 128
 #endif
 
-#ifdef DISC_BUILD_FROM_TF_BRIDGE
-#include "tensorflow/compiler/mlir/xla/compile_metadata.pb.h"
-#else
 #include "tensorflow/compiler/mlir/xla/ral/compile_metadata.pb.h"
-#endif
 #include <chrono>
 
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"

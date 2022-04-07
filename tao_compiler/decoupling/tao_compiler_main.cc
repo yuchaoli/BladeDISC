@@ -68,9 +68,9 @@ std::string version_info() {
   std::stringstream ss;
   ss << "DISC Version:"
      << "\n"
-     << "TAO_BUILD_VERSION=" << TAO_BUILD_VERSION << "\n"
-     << "TAO_BUILD_GIT_HEAD=" << TAO_BUILD_GIT_HEAD << "\n"
-     << "TAO_BUILD_TIME=" << TAO_BUILD_TIME;
+     << "DISC_BUILD_VERSION=" << DISC_BUILD_VERSION << "\n"
+     << "DISC_BUILD_GIT_HEAD=" << DISC_BUILD_GIT_HEAD << "\n"
+     << "DISC_BUILD_TIME=" << DISC_BUILD_TIME;
   return ss.str();
 }
 

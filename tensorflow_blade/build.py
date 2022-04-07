@@ -17,7 +17,10 @@ import argparse
 import os
 import random
 import re
+import socket
 import subprocess
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"))
 
 from six.moves import cPickle as pickle
 
@@ -30,10 +33,14 @@ from common_internal import (
     get_cudnn_version,
     get_site_packages_dir,
     get_trt_version,
+    git_branch,
+    git_head,
     logger,
     safe_run,
     which,
 )
+from datetime import datetime
+from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
@@ -172,6 +179,19 @@ def configure_with_bazel(args):
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
         _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
+        if not args.skip_compiler:
+            # Build environments. They all starts with `DISC_BUILD_`.
+            host = socket.gethostname()
+            ip = socket.gethostbyname(host)
+            _action_env("DISC_BUILD_VERSION", args.version)
+            _action_env("DISC_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-'))
+            _action_env("DISC_BUILD_GIT_HEAD", git_head().decode("utf-8"))
+            _action_env("DISC_BUILD_HOST", host)
+            _action_env("DISC_BUILD_IP", ip)
+            _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
+            if args.platform_alibaba:
+                _opt("cxxopt", "-DPLATFORM_ALIBABA")
+                _opt("define", "is_platform_alibaba=true")
 
         # CUDA
         if args.device == "gpu":
@@ -262,6 +282,13 @@ def parse_args():
 
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument(
+        "-v",
+        "--version",
+        required=False,
+        default="auto",
+        help="Version of built packages, defaults to %(default)s. auto: read from VERSION file.",
+    )
+    parser.add_argument(
         "-s",
         "--stage",
         required=False,
@@ -307,11 +334,25 @@ def parse_args():
         help="If True, hie will be skipped for internal build",
     )
     parser.add_argument(
+        '--skip-compiler',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, disc compiler will be skipped for build",
+    )
+    parser.add_argument(
         '--internal',
         action="store_true",
         required=False,
         default=False,
         help="If True, internal objects will be built",
+    )
+    parser.add_argument(
+        '--platform-alibaba',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, objects inside macro PLATFORM_ALIBABA will be built",
     )
     parser.add_argument(
         "--verbose",
@@ -329,6 +370,9 @@ def parse_args():
 
     # flag validation
     args = parser.parse_args()
+    if args.version == "auto":
+        args.version = open(get_version_file()).read().split()[0]
+
     return args
 
 
