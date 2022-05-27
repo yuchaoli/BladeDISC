@@ -2,8 +2,6 @@
 load("@org_third_party//bazel/blade_disc_helper:blade_disc_helper_configure.bzl", "blade_disc_helper_configure")
 load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
-load("@org_third_party//bazel/tf_source:tf_source_configure.bzl", "tf_source_configure")
-load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protobuf_configure")
 
 # Import external repository rules.
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
@@ -32,10 +30,6 @@ def _tao_bridge_repositories():
 
 def _tao_bridge_toolchains():
     tf_configure(name = "local_config_tf")
-
-    tf_protobuf_configure(name = "local_config_tf_protobuf")
-
-    tf_source_configure(name = "local_config_tf_source")
 
     blade_disc_helper_configure(name = "local_config_blade_disc_helper")
 
