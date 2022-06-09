@@ -6,7 +6,8 @@ load(
     "tf_cc_test",
     "tf_copts",
     "tf_gpu_kernel_library",
-    "tf_gpu_library",
+    # "tf_gpu_library",
+    "tf_cuda_library",
     "tf_native_cc_binary",
 )
 load(
@@ -309,7 +310,7 @@ cc_library(
     alwayslink = 1,
 )
 
-tf_gpu_library(
+tf_cuda_library(
     name = "dynamic_sort",
     srcs = [
         "context/dynamic_sort_impl.cc",
@@ -547,13 +548,30 @@ cc_library(
         [
             "@org_tensorflow//tensorflow/core:lib",
             "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:core_cpu",
+            "@org_tensorflow//tensorflow/core:stream_executor_no_cuda",
             "@org_tensorflow//tensorflow/stream_executor:stream_executor_impl",
+#             "@com_google_absl//absl/algorithm",
+#             "@com_google_absl//absl/base",
+#             "@com_google_absl//absl/container:inlined_vector",
+#             "@com_google_absl//absl/strings",
+#             "@com_google_absl//absl/types:span",
+#             "@com_google_absl//absl/types:optional",
+#             "@com_google_absl//absl/utility",
+#             "@com_google_protobuf//:protobuf_headers",
+#             "@org_tensorflow//third_party/eigen3",
+#             "@org_tensorflow//tensorflow:tensorflow_framework_lib",
+#             "@org_tensorflow//tensorflow/core:proto_text",
         ],
         [
             "@local_config_tf//:libtensorflow_framework",
             "@local_config_tf//:tf_header_lib",
         ],
     ),
+    linkopts = [
+        "-I/apsara/lanbo.llb/alibaba/bazel-bin/external/org_tensorflow",
+        "-I/apsara/lanbo.llb/bazel_cache/50e8d65bd29bfc145a52662b0aa6cbe5/external/flatbuffers/include",
+    ],
     alwayslink = 1,
 )
 
@@ -583,7 +601,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
-    ]),
+    ]) + ["-DTF_1_12", "-DTF_MAJOR=1", "-DTF_MINOR=12"],
     linkopts = [
         "-fopenmp",
         "-ldl",
@@ -624,7 +642,7 @@ cc_library(
     ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
-    ]),
+    ]) + ["-DTF_1_12", "-DTF_MAJOR=1", "-DTF_MINOR=12"],
     deps = [
         ":common_context_bridge",
         ":context_util",

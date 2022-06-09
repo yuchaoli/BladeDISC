@@ -1,9 +1,9 @@
 load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
-load("@local_config_tf//:build_defs.bzl", "tf_copts")
+# load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 
 # NOTE(lanbo.llb): if_dcu when building for tf serving is just a dummy impl
-load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
+# load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
 load("//:tao_bridge.bzl", "tao_bridge_cc_test")
 load(
     "@local_config_blade_disc_helper//:build_defs.bzl",
@@ -16,7 +16,7 @@ load(
     "if_tf_serving",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
-load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
+# load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -112,14 +112,12 @@ cc_library(
     ),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1",
-    ]) + if_dcu([
-        "-DTENSORFLOW_USE_DCU=1",
-    ]) + if_rocm([
-        "-DTENSORFLOW_USE_ROCM=1",
-        "-x rocm",
-    ]) + tf_copts(),
+    ]) + ["-DTF_1_12", "-DTF_MAJOR=1", "-DTF_MINOR=12", "-DIS_PAI_TF"],
     linkopts = [
         "-lm",
+        "-lcudart -L/usr/local/cuda-11.2/lib64/",
+        "-I/apsara/lanbo.llb/alibaba/bazel-bin/external/org_tensorflow",
+        "-I/apsara/lanbo.llb/bazel_cache/50e8d65bd29bfc145a52662b0aa6cbe5/external/flatbuffers/include",
     ],
     linkstatic = 1,
     deps = [
@@ -129,9 +127,20 @@ cc_library(
         [
             "@org_tensorflow//tensorflow/core:lib",
             "@org_tensorflow//tensorflow/core:framework",
-            "@org_tensorflow//tensorflow/core/common_runtime:core_cpu",
-            "@org_tensorflow//tensorflow/core/platform:stream_executor_no_cuda",
+            "@org_tensorflow//tensorflow/core:core_cpu",
+            "@org_tensorflow//tensorflow/core:stream_executor_no_cuda",
             "@org_tensorflow//tensorflow/stream_executor:stream_executor_impl",
+#             "@com_google_absl//absl/algorithm",
+#             "@com_google_absl//absl/base",
+#             "@com_google_absl//absl/container:inlined_vector",
+#             "@com_google_absl//absl/strings",
+#             "@com_google_absl//absl/types:span",
+#             "@com_google_absl//absl/types:optional",
+#             "@com_google_absl//absl/utility",
+#             "@com_google_protobuf//:protobuf_headers",
+#             "@org_tensorflow//third_party/eigen3",
+#             "@org_tensorflow//tensorflow/core:proto_text",
+#             "@org_tensorflow//tensorflow:tensorflow_framework_lib",
         ],
         [
             "@local_config_tf//:tf_header_lib",
@@ -154,6 +163,18 @@ tf_cc_shared_object(
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
     ],
+)
+
+cc_library(
+    name = "tao_ops_lib",
+    srcs = ["libtao_ops.so"],
+    data = [
+        ":libtao_ops.so",
+    ],
+    includes = [
+        ".",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 tao_bridge_cc_test(

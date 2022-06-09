@@ -418,7 +418,7 @@ class MarkForCompilationPassImpl {
     int to = cluster_to->cycles_graph_node_id();
 
     if (!cycles_graph_.ContractEdge(from, to)) {
-      VLOG(2) << "Could not contract " << cluster_from->DebugString(*graph_)
+      VLOG(0) << "Could not contract " << cluster_from->DebugString(*graph_)
               << " -> " << cluster_to->DebugString(*graph_)
               << " because contracting the edge would create a cycle via "
               << DescribePotentialCycle(from, to) << ".";
@@ -648,7 +648,7 @@ StatusOr<bool> MarkForCompilationPassImpl::Initialize() {
   TF_RETURN_IF_ERROR(FindCompilationCandidates());
 
   if (compilation_candidates_.empty()) {
-    VLOG(2) << "No compilable candidates";
+    VLOG(0) << "No compilable candidates";
     return false;
   }
 
@@ -656,7 +656,7 @@ StatusOr<bool> MarkForCompilationPassImpl::Initialize() {
                       CreateCycleDetectionGraph(graph_, &cycles_graph_));
   if (!cycle_detection_graph_ok) {
     // TODO(sanjoy): This should be logged via the XLA activity listener.
-    VLOG(2) << "Could not form cycle detection graph";
+    VLOG(0) << "Could not form cycle detection graph";
     return false;
   }
 
@@ -900,7 +900,7 @@ Status MarkForCompilationPassImpl::RunEdgeContractionLoop() {
   // post order gives a maximal clustering) holds.  Once the linear time
   // post-order scheme has been battle tested we can move this to happen only in
   // debug builds.
-  VLOG(2) << "Checking idempotence";
+  VLOG(0) << "Checking idempotence";
   TF_ASSIGN_OR_RETURN(bool changed,
                       ForEachEdgeInPostOrder([&](Cluster* from, Cluster* to) {
                         return TryToContractEdge(from, to);
@@ -968,7 +968,7 @@ Status MarkForCompilationPassImpl::CreateClusters() {
       ckeys[5] = "is_xla_compile_attr_true";
       collector.SetCustomValue(ckeys, cluster->is_xla_compile_attr_true());
     } else {
-      VLOG(2) << "Rejecting node for small cluster: " << n->name()
+      VLOG(0) << "Rejecting node for small cluster: " << n->name()
               << ", cluster size: " << cluster->effective_cluster_size()
               << ", min_cluster_size: " << debug_options_.min_cluster_size
               << ", cluster: " << cluster->cycles_graph_node_id();
@@ -981,7 +981,7 @@ Status MarkForCompilationPassImpl::CreateClusters() {
 Status MarkForCompilationPassImpl::DumpDebugInfo() {
   TF_RET_CHECK(initialized_ && edges_contracted_ && clusters_created_);
 
-  if (VLOG_IS_ON(2)) {
+  if (VLOG_IS_ON(0)) {
     DumpPostClusteringGraphs();
   }
 
@@ -1236,10 +1236,10 @@ std::unordered_set<string> GetOrCreateWhitelist(
     }
   }
 
-  if (VLOG_IS_ON(2) && !whitelist.empty()) {
+  if (VLOG_IS_ON(0) && !whitelist.empty()) {
     std::vector<string> vwhitelist(whitelist.begin(), whitelist.end());
     std::sort(vwhitelist.begin(), vwhitelist.end());
-    VLOG(2) << "XLA clustering will only consider the following TF operations: "
+    VLOG(0) << "XLA clustering will only consider the following TF operations: "
             << absl::StrJoin(vwhitelist, " ");
   }
   return whitelist;
@@ -1284,50 +1284,50 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
   if (*debug_options_.fuel >= std::numeric_limits<int64>::max() / 2) {
     // The assumption is that if fuel started out as INT64_MAX, it will forever
     // stay greater than INT64_MAX / 2.
-    VLOG(2) << "Starting fuel: infinity";
+    VLOG(0) << "Starting fuel: infinity";
   } else {
-    VLOG(2) << "Starting fuel: " << *debug_options_.fuel;
+    VLOG(0) << "Starting fuel: " << *debug_options_.fuel;
   }
 
-  VLOG(2) << "sorted_nodes.size() = " << sorted_nodes.size();
+  VLOG(0) << "sorted_nodes.size() = " << sorted_nodes.size();
 
   auto whitelist =
       GetOrCreateWhitelist(debug_options_.override_tf_xla_ops_to_cluster);
   std::vector<std::string> vall_ops = XlaOpRegistry::GetAllRegisteredOps();
-  VLOG(2) << "registered xla ops: " << absl::StrJoin(vall_ops, ",");
+  VLOG(0) << "registered xla ops: " << absl::StrJoin(vall_ops, ",");
   std::unordered_set<std::string> all_ops(vall_ops.begin(), vall_ops.end());
   // Check that user's provided TF operation really exists.
   for (auto s : whitelist) {
     if (!all_ops.count(string(s))) {
       return errors::InvalidArgument(
           "The operation '", s,
-          "' passed to --tf_xla_ops_to_cluster is not supported by XLA.");
+          "' passed to --tf_xla_ops_to_cluster is not supported by DISC.");
     }
   }
 
   for (Node* node : sorted_nodes) {
     if (*debug_options_.fuel <= 0) {
-      VLOG(2)
+      VLOG(0)
           << "Hit fuel limit; not marking any remaining ops as clusterable.";
       break;
     }
     TF_ASSIGN_OR_RETURN(
         const DeviceType& device_type,
         device_info_cache_.GetDeviceTypeFor(node->assigned_device_name()));
-    VLOG(2) << "Device type for " << node->name() << ": "
+    VLOG(0) << "Device type for " << node->name() << ": "
             << device_type.type_string();
 
     if (GetFusedOpTable()->count(node->type_string()) > 0 &&
         device_type.type_string() == DEVICE_CPU) {
       compilation_candidates_.insert(node);
       --(*debug_options_.fuel);
-      VLOG(2) << "Not clustering " << node->name()
+      VLOG(0) << "Not clustering " << node->name()
               << ": disallowed by device_type";
       continue;
     }
 
     if (CompilationDisallowedByXlaCompileAttr(node)) {
-      VLOG(2) << "Not clustering " << node->name()
+      VLOG(0) << "Not clustering " << node->name()
               << ": disallowed by _XlaCompile attribute";
       continue;
     }
@@ -1335,7 +1335,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     const XlaOpRegistry::DeviceRegistration* registration;
     if (!XlaOpRegistry::GetCompilationDevice(device_type.type(),
                                              &registration)) {
-      VLOG(2) << "Rejecting " << node->name()
+      VLOG(0) << "Rejecting " << node->name()
               << ": could not find JIT device for " << device_type.type();
       continue;
     }
@@ -1356,13 +1356,13 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
 
     if (!RecursiveCompilabilityChecker{&op_filter, &jit_device_type}
              .IsCompilableNode(*node, lib_runtime)) {
-      VLOG(2) << "Rejecting TF operation " << node->def().op()
+      VLOG(0) << "Rejecting TF operation " << node->def().op()
               << " as it is not compilable";
       continue;
     }
 
     if (!whitelist.empty() && !whitelist.count(node->def().op())) {
-      VLOG(2) << "Rejecting TF operation " << node->def().op()
+      VLOG(0) << "Rejecting TF operation " << node->def().op()
               << " as it is not listed in --tf_xla_ops_to_cluster.";
       continue;
     }
@@ -1412,7 +1412,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
         bool is_tensor_array_or_stack_op =
             op_info && op_info->resource_kind() != XlaResourceKind::kVariable;
         if (!is_tensor_array_or_stack_op) {
-          VLOG(2) << "Isolating " << node->name()
+          VLOG(0) << "Isolating " << node->name()
                   << ": must-be-constant stateful op";
           continue;
         }
@@ -1442,7 +1442,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     TF_ASSIGN_OR_RETURN(bool is_identity_driving_consts_in_loop,
                         IsIdentityDrivingConstsInLoop(node));
     if (is_identity_driving_consts_in_loop) {
-      VLOG(2) << "Rejecting " << node->name()
+      VLOG(0) << "Rejecting " << node->name()
               << ": including it can create dependencies between while loop "
                  "condition and body computations with runtime overhead.";
       continue;
@@ -1452,7 +1452,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     // scope
     if (global_jit_level_ == OptimizerOptions::OFF &&
         GetNodeAttrString(node->attrs(), kReuseXlaScopeAttr).empty()) {
-      VLOG(2) << "Rejecting " << node->name() << ": not in jit scope";
+      VLOG(0) << "Rejecting " << node->name() << ": not in jit scope";
       continue;
     }
 
@@ -1477,14 +1477,14 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
 
         if (total_elements > kSmallTensorThreshold) {
           if (device_type.type_string() != DEVICE_CPU) {
-            VLOG(2) << "Ignore Big const " << node->name();
+            VLOG(0) << "Ignore Big const " << node->name();
             continue;
           } else {
             if (const_total > kCpuTensorSumThreshold) {
-              VLOG(2) << "Big const ignored for CPU " << node->name();
+              VLOG(0) << "Big const ignored for CPU " << node->name();
               continue;
             }
-            VLOG(2) << "Big const reserved for CPU " << node->name();
+            VLOG(0) << "Big const reserved for CPU " << node->name();
           }
         }
       }
@@ -1508,7 +1508,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       for (auto s : absl::StrSplit(
                GetTaoBridgeOptions()->op_type_clustering_black_list, ',')) {
         if (s == node->type_string()) {
-          VLOG(2) << "Rejecting " << node->type_string()
+          VLOG(0) << "Rejecting " << node->type_string()
                   << " as op type black list";
           to_continue = true;
           break;
@@ -1518,7 +1518,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       for (auto s : absl::StrSplit(
                GetTaoBridgeOptions()->op_name_clustering_black_list, ',')) {
         if (s != "" && node->name().find(s.data()) != std::string::npos) {
-          VLOG(2) << "Rejecting " << node->name() << " as op name black list";
+          VLOG(0) << "Rejecting " << node->name() << " as op name black list";
           to_continue |= true;
           break;
         }
@@ -1595,7 +1595,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     --(*debug_options_.fuel);
   }
 
-  VLOG(2) << "compilation_candidates_.size() = "
+  VLOG(0) << "compilation_candidates_.size() = "
           << compilation_candidates_.size();
   return Status::OK();
 }
@@ -1612,7 +1612,7 @@ bool MarkForCompilationPassImpl::CompilationDisallowedByXlaCompileAttr(
 
   if (status.ok()) {
     if (!compile) {
-      VLOG(2) << "Rejecting " << node->name() << ": kXlaCompileAttr("
+      VLOG(0) << "Rejecting " << node->name() << ": kXlaCompileAttr("
               << kXlaCompileAttr << ") is false.";
     }
     return !compile;
@@ -1621,7 +1621,7 @@ bool MarkForCompilationPassImpl::CompilationDisallowedByXlaCompileAttr(
   status = flib_def_->GetAttr(*node, kXlaCompileAttr, &compile);
   if (status.ok()) {
     if (!compile) {
-      VLOG(2) << "Rejecting " << node->name() << ": kXlaCompileAttr("
+      VLOG(0) << "Rejecting " << node->name() << ": kXlaCompileAttr("
               << kXlaCompileAttr << ") on callee is false.";
     }
     return !compile;
@@ -1632,7 +1632,7 @@ bool MarkForCompilationPassImpl::CompilationDisallowedByXlaCompileAttr(
 
 bool MarkForCompilationPassImpl::LogNotContractableAndReturnFalse(
     Cluster* from, Cluster* to, absl::string_view reason) {
-  VLOG(2) << EdgeContractionFailureMsg(from, to, reason);
+  VLOG(0) << EdgeContractionFailureMsg(from, to, reason);
   return false;
 }
 
@@ -1669,7 +1669,7 @@ StatusOr<bool> MarkForCompilationPassImpl::TryToContractEdge(Cluster* from,
   DCHECK(from->deadness_predicate().has_value() ==
          to->deadness_predicate().has_value());
   if (from->deadness_predicate() != to->deadness_predicate()) {
-    VLOG(2) << EdgeContractionFailureMsg(
+    VLOG(0) << EdgeContractionFailureMsg(
         from, to,
         absl::StrCat(
             "the two nodes have mismatching deadness: ",
@@ -1692,7 +1692,7 @@ StatusOr<bool> MarkForCompilationPassImpl::TryToContractEdge(Cluster* from,
     auto to_ckpt_id = GetCheckPointId(to_node->name());
     if (from_micro_batch_id != to_micro_batch_id ||
         from_ckpt_id != to_ckpt_id) {
-      VLOG(2) << from_node->name() << " " << to_node->name()
+      VLOG(0) << from_node->name() << " " << to_node->name()
               << "micro_batch_id or checkpoint_id mismatch";
       return LogNotContractableAndReturnFalse(
           from, to, "micro_batch_id or checkpoint_id mismatch");
@@ -1724,6 +1724,7 @@ StatusOr<bool> MarkForCompilationPassImpl::TryToContractEdge(Cluster* from,
         from, to, "the new cluster will be larger than the max cluster size");
   }
 
+#if 0
   TF_ASSIGN_OR_RETURN(bool will_introduce_cross_device_dependency,
                       ClusteringWillIntroduceInterDeviceDependency(*from, *to));
 
@@ -1731,6 +1732,7 @@ StatusOr<bool> MarkForCompilationPassImpl::TryToContractEdge(Cluster* from,
     return LogNotContractableAndReturnFalse(
         from, to, "the new cluster will introduce a cross device dependency");
   }
+#endif
 
   // Check if contracting this edge will break the resource variable concurrency
   // semantics.  In theory this is quadratic in the number of nodes, but seems
@@ -1784,7 +1786,7 @@ Status MarkForCompilationPassImpl::Run() {
 }
 
 void MarkForCompilationPassImpl::DumpPostClusteringGraphs() {
-  VLOG(2) << dump_graph::DumpGraphToFile("mark_for_compilation", *graph_,
+  VLOG(0) << dump_graph::DumpGraphToFile("mark_for_compilation", *graph_,
                                          flib_def_);
 
   // We also dump out an annotated version of the TF graph where the nodes
@@ -1808,7 +1810,7 @@ void MarkForCompilationPassImpl::DumpPostClusteringGraphs() {
     }
   }
 
-  VLOG(2) << dump_graph::DumpGraphToFile("mark_for_compilation_annotated",
+  VLOG(0) << dump_graph::DumpGraphToFile("mark_for_compilation_annotated",
                                          new_graph, flib_def_);
 }
 
@@ -1827,8 +1829,8 @@ void MarkForCompilationPassImpl::GetClusterSummary(
   XlaAutoClusteringSummary auto_clustering_info =
       GetXlaAutoClusteringSummary(*graph_);
 
-  VLOG(2) << "*** Clustering info for graph of size " << graph_->num_nodes();
-  VLOG(2) << " Built " << auto_clustering_info.clusters_size()
+  VLOG(0) << "*** Clustering info for graph of size " << graph_->num_nodes();
+  VLOG(0) << " Built " << auto_clustering_info.clusters_size()
           << " clusters, size "
           << RatioToString(auto_clustering_info.clustered_node_count(),
                            graph_->num_nodes());
@@ -1836,23 +1838,23 @@ void MarkForCompilationPassImpl::GetClusterSummary(
        auto_clustering_info.clusters()) {
     absl::string_view cluster_name = cluster.name();
     int size = cluster.size();
-    VLOG(2) << "  " << cluster_name << " "
+    VLOG(0) << "  " << cluster_name << " "
             << RatioToString(size, graph_->num_nodes());
     for (const XlaAutoClusteringSummary::OpAndCount& op_count :
          cluster.op_histogram()) {
-      VLOG(2) << "   " << op_count.op() << ": " << op_count.count()
+      VLOG(0) << "   " << op_count.op() << ": " << op_count.count()
               << " instances";
       op_hist[op_count.op()] = op_count.count();
     }
   }
 
   if (!auto_clustering_info.unclustered_op_histogram().empty()) {
-    VLOG(2) << " Unclustered nodes: "
+    VLOG(0) << " Unclustered nodes: "
             << RatioToString(auto_clustering_info.unclustered_node_count(),
                              graph_->num_nodes());
     for (const XlaAutoClusteringSummary::OpAndCount& op_count :
          auto_clustering_info.unclustered_op_histogram()) {
-      VLOG(2) << "  " << op_count.op() << ": " << op_count.count()
+      VLOG(0) << "  " << op_count.op() << ": " << op_count.count()
               << " instances";
       unclustered_op_hist[op_count.op()] = op_count.count();
     }
@@ -1860,14 +1862,14 @@ void MarkForCompilationPassImpl::GetClusterSummary(
 }
 
 void MarkForCompilationPassImpl::VLogClusteringSummary() {
-  if (!VLOG_IS_ON(2)) {
+  if (!VLOG_IS_ON(0)) {
     return;
   }
   XlaAutoClusteringSummary auto_clustering_info =
       GetXlaAutoClusteringSummary(*graph_);
 
-  VLOG(2) << "*** Clustering info for graph of size " << graph_->num_nodes();
-  VLOG(2) << " Built " << auto_clustering_info.clusters_size()
+  VLOG(0) << "*** Clustering info for graph of size " << graph_->num_nodes();
+  VLOG(0) << " Built " << auto_clustering_info.clusters_size()
           << " clusters, size "
           << RatioToString(auto_clustering_info.clustered_node_count(),
                            graph_->num_nodes());
@@ -1876,22 +1878,22 @@ void MarkForCompilationPassImpl::VLogClusteringSummary() {
        auto_clustering_info.clusters()) {
     absl::string_view cluster_name = cluster.name();
     int size = cluster.size();
-    VLOG(2) << "  " << cluster_name << " "
+    VLOG(0) << "  " << cluster_name << " "
             << RatioToString(size, graph_->num_nodes());
     for (const XlaAutoClusteringSummary::OpAndCount& op_count :
          cluster.op_histogram()) {
-      VLOG(2) << "   " << op_count.op() << ": " << op_count.count()
+      VLOG(0) << "   " << op_count.op() << ": " << op_count.count()
               << " instances";
     }
   }
 
   if (!auto_clustering_info.unclustered_op_histogram().empty()) {
-    VLOG(2) << " Unclustered nodes: "
+    VLOG(0) << " Unclustered nodes: "
             << RatioToString(auto_clustering_info.unclustered_node_count(),
                              graph_->num_nodes());
     for (const XlaAutoClusteringSummary::OpAndCount& op_count :
          auto_clustering_info.unclustered_op_histogram()) {
-      VLOG(2) << "  " << op_count.op() << ": " << op_count.count()
+      VLOG(0) << "  " << op_count.op() << ": " << op_count.count()
               << " instances";
     }
   }
@@ -2051,7 +2053,7 @@ StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(
     });
   }
 
-  VLOG(2) << (should_compile ? "Compiling" : "Not compiling")
+  VLOG(0) << (should_compile ? "Compiling" : "Not compiling")
           << " cluster with device "
           << device_info_cache_.GetNameFor(chosen_device);
 
@@ -2084,7 +2086,7 @@ bool IsSupportedResourceForXLA(Node* resource_op) {
 
 Status FilterInvalidClusters(Graph* graph,
                              std::unordered_set<string>* invalid_clusters) {
-  VLOG(2) << "FilterInvalidClusters...";
+  VLOG(0) << "FilterInvalidClusters...";
 
   CHECK(invalid_clusters != nullptr);
   invalid_clusters->clear();
@@ -2130,7 +2132,7 @@ Status FilterInvalidClusters(Graph* graph,
   }
 
   for (auto& name : *invalid_clusters) {
-    VLOG(2) << "Find invalid cluster: " << name;
+    VLOG(0) << "Find invalid cluster: " << name;
   }
   return Status::OK();
 }
@@ -2226,7 +2228,7 @@ Status RecursivelySetDevice(const Graph* graph,
     }
   }
 
-  VLOG(2) << "Total unsafe edges: " << unsafe_edges.size();
+  VLOG(0) << "Total unsafe edges: " << unsafe_edges.size();
 
   while (true) {
     bool found_new_unsafe_nodes = false;
@@ -2249,14 +2251,14 @@ Status RecursivelySetDevice(const Graph* graph,
     }
   }
 
-  VLOG(2) << "Total unsafe nodes: " << unsafe_nodes.size();
+  VLOG(0) << "Total unsafe nodes: " << unsafe_nodes.size();
 
   for (Node* node : unsafe_nodes) {
     if (std::count(initial_nodes.begin(), initial_nodes.end(), node) == 0) {
       // Clean all device information. Placer will help to figure this out.
       node->set_requested_device(device_name);
       node->set_assigned_device_name(device_name);
-      VLOG(2) << "Clean device information for " << node->name();
+      VLOG(0) << "Clean device information for " << node->name();
     }
   }
   return Status::OK();
@@ -2304,7 +2306,7 @@ StatusOr<bool> MaybeDeclusterAndLower(
     }
 
     if (IsFunctionalControlFlowOps(node)) {
-      VLOG(2) << node->name() << " is defunctionalized";
+      VLOG(0) << node->name() << " is defunctionalized";
       TF_RETURN_IF_ERROR(DefunctionalizeFactory().defunctionalize(
           node, graph, *options.flib_def));
       is_changed = true;
@@ -2332,7 +2334,7 @@ StatusOr<bool> MaybeDeclusterAndLower(
     for (Node* node : nodes_to_move) {
       node->set_requested_device("");
       node->set_assigned_device_name(valid_host_device);
-      VLOG(2) << "Place " << node->name() << " on " << valid_host_device;
+      VLOG(0) << "Place " << node->name() << " on " << valid_host_device;
     }
 
     // This is an empirical options. For TF 1.12, we can just clean old device
@@ -2623,7 +2625,6 @@ std::vector<string> GetDiscSupportedOps() {
     "Rsqrt",
     "RsqrtGrad",
     "Select",
-    "SelectV2",
     "Shape",
     "Sigmoid",
     "SigmoidGrad",
@@ -2658,6 +2659,7 @@ std::vector<string> GetDiscSupportedOps() {
     "AddV2",
     "BatchMatMulV2",
     "GatherV2"
+    "SelectV2",
   });
 #endif
 

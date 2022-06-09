@@ -5,8 +5,8 @@ build:release --spawn_strategy=local  # this is a workaround to include third pa
 # base
 build:release_base --config=release
 build:release_base --distinct_host_configuration=false
-build:release_base --cxxopt=-std=c++14
-build:release_base --host_cxxopt=-std=c++14
+# build:release_base --cxxopt=-std=c++14
+# build:release_base --host_cxxopt=-std=c++14
 build:release_base --compilation_mode=opt
 # cpu
 build:avx_linux --copt=-mavx
@@ -19,7 +19,7 @@ build:release_cpu_linux --crosstool_top="@ubuntu16.04-py3-gcc7_manylinux2010-cud
 # cuda
 build:cuda --repo_env TF_NEED_CUDA=1
 build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
-build:cuda --@local_config_cuda//:enable_cuda
+# build:cuda --@local_config_cuda//:enable_cuda
 
 # dcu
 build:dcu --crosstool_top=@local_config_rocm//crosstool:toolchain

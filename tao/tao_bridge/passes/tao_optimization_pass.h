@@ -52,7 +52,9 @@ struct TaoPassOptions {
 
 class TaoOptimizationPass : public GraphOptimizationPass {
  public:
-  TaoOptimizationPass() : opts_(absl::make_unique<TaoPassOptions>()) {}
+  TaoOptimizationPass() : opts_(absl::make_unique<TaoPassOptions>()) {
+    LOG(INFO) << "[lanbo.llb] TaoOptimizationPass";
+  }
 
   void set_options(std::unique_ptr<TaoPassOptions> opts) {
     opts_ = std::move(opts);

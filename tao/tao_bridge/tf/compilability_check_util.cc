@@ -72,7 +72,7 @@ bool HasResourceInput(const Node& node) {
 }
 
 void LogNotCompilable(const Node& node, absl::string_view reason = "") {
-  VLOG(3) << "Found uncompilable node " << node.name() << " (op "
+  VLOG(0) << "Found uncompilable node " << node.name() << " (op "
           << node.type_string() << ")" << (reason.empty() ? "" : ": ")
           << reason;
 }
