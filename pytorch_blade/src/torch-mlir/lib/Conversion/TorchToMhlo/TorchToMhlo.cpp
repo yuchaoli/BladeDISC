@@ -433,16 +433,13 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     rhsType = rhsTensor.getType().dyn_cast<TensorType>();
 
     // Handle alpha.
-    Value alphaTensor;
-    if (failed(torchScalarToMhloTensorLike(
-            rewriter, op.getOperation(), op.alpha(), rhsTensor, alphaTensor))) {
-      return op.emitError(
-          "Currently only scalar constants are supported for "
-          "alpha in conversion to MHLO operation");
-    }
+    Value alphaTensor = scalarToMhloTensor(
+        rewriter, op, adaptor.alpha(), rhsType.getElementType(), {});
+
     auto multTensor =
         rewriter
-            .create<mhlo::MulOp>(op.getLoc(), rhsType, rhsTensor, alphaTensor)
+            .create<chlo::BroadcastMulOp>(
+                op.getLoc(), rhsType, rhsTensor, alphaTensor, nullptr)
             .getResult();
 
     if (lhsType.getElementType() != outElemTy)
@@ -783,7 +780,69 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   auto erf = rewriter.create<mlir::chlo::ErfOp>(loc, erf_element);
   auto erf_add = rewriter.create<mhlo::AddOp>(loc, erf, one);
   auto half_mul = rewriter.create<mhlo::MulOp>(loc, erf_add, half);
-  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, half_mul);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(
+      op, getTypeConverter()->convertType(op.getType()), input, half_mul);
+  return success();
+}
+
+// This lowering is based on Torch to LinAlg lowering.
+template <>
+LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
+    AtenGeluBackwardOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a tensor type.
+  auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
+  if (!selfType)
+    return op.emitError("Only tensor types are currently supported");
+
+  auto selfElemTy = selfType.getElementType();
+  if (!selfElemTy.isa<mlir::FloatType>()) {
+    return op.emitError("Only floating-point datatype legalization supported");
+  }
+
+  // TODO: Handle approximate.
+  std::string approximate;
+  if (!matchPattern(op.approximate(), m_TorchConstantStr(approximate)) ||
+      approximate != "none") {
+    return op.emitError("Unsupported value of approximate");
+  }
+
+  auto loc = op->getLoc();
+
+  const double cstAlpha0 = 1.12837916709551257390;
+  const double cstAlpha1 = 0.70710678118654752440;
+  const double kAlpha = cstAlpha0 * cstAlpha1;
+  auto input = adaptor.self();
+  Value kAlphaHalf = chlo::getConstantLike(rewriter, loc, kAlpha * 0.5, input);
+  Value negOneHalf = chlo::getConstantLike(rewriter, loc, -0.5, input);
+  Value inputSquared =
+      rewriter.create<mhlo::MulOp>(loc, selfType, input, input);
+  Value negHalfInputSquared =
+      rewriter.create<mhlo::MulOp>(loc, selfType, inputSquared, negOneHalf);
+  Value dinput =
+      rewriter.create<mhlo::ExpOp>(loc, selfType, negHalfInputSquared);
+  Value dinputInput =
+      rewriter.create<mhlo::MulOp>(loc, selfType, dinput, input);
+  Value dinputInputAlpha =
+      rewriter.create<mhlo::MulOp>(loc, selfType, dinputInput, kAlphaHalf);
+
+  Value kAlpha1 = chlo::getConstantLike(rewriter, loc, cstAlpha1, input);
+  Value one = chlo::getConstantLike(rewriter, loc, 1, input);
+  Value oneHalf = chlo::getConstantLike(rewriter, loc, 0.5, input);
+  Value inputAlpha1 =
+      rewriter.create<mhlo::MulOp>(loc, selfType, input, kAlpha1);
+  Value erfInput = rewriter.create<chlo::ErfOp>(loc, selfType, inputAlpha1);
+  Value erfPlus1 = rewriter.create<mhlo::AddOp>(loc, selfType, erfInput, one);
+  Value cdf = rewriter.create<mhlo::MulOp>(loc, selfType, erfPlus1, oneHalf);
+  Value cdfExt =
+      rewriter.create<mhlo::AddOp>(loc, selfType, dinputInputAlpha, cdf);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      adaptor.grad_output(),
+      cdfExt);
+
   return success();
 }
 
@@ -1160,6 +1219,7 @@ class ConvertAtenMatmulBaseOp : public OpConversionPattern<AtenOpT> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Value lhs, rhs;
+
     if (failed(readMatMulInputs(op, adaptor, rewriter, lhs, rhs)))
       return op.emitError("Failed to read matmul inputs");
 
@@ -1174,7 +1234,6 @@ class ConvertAtenMatmulBaseOp : public OpConversionPattern<AtenOpT> {
             ->convertType(op.getType())
             .template cast<RankedTensorType>(),
         output);
-
     return success();
   }
 };
@@ -1319,7 +1378,6 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
                                nullptr)
                            .getResult();
     }
-
     rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
@@ -1439,7 +1497,7 @@ LogicalResult ConvertAtenOp<AtenSliceTensorOp>::matchAndRewrite(
   auto self = adaptor.self();
   auto selfTy = self.getType().template cast<RankedTensorType>();
   if (!selfTy)
-    return op.emitError("Only ranked tensor types supported in MHLO Rsub");
+    return op.emitError("Only ranked tensor types supported in MHLO");
   int64_t dim;
   if (!matchPattern(op.dim(), m_TorchConstantInt(&dim)))
     return rewriter.notifyMatchFailure(
@@ -1476,19 +1534,12 @@ LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
 
   auto selfTy = self.getType().template cast<RankedTensorType>();
   if (!selfTy)
-    return op.emitError("Only ranked tensor types supported in MHLO Rsub");
+    return op.emitError("Only ranked tensor types supported in MHLO");
 
-  if (!selfTy.getElementType().isa<mlir::FloatType>())
-    return op.emitError("Only floating-point datatype legalization supported");
+  auto otherTensor = scalarToMhloTensor(
+      rewriter, op, adaptor.other(), selfTy.getElementType(), {});
 
-  Value otherTensor, alphaTensor;
-
-  if (failed(torchScalarToMhloTensor(
-          rewriter, op, otherScalar, otherTensor, selfTy.getElementType(), {})))
-    return op.emitError(
-        "Currently only scalar constants are supported for "
-        "conversion in MHLO Rsub operation");
-
+  Value alphaTensor;
   if (failed(torchAlphaToMhloTensor(
           rewriter,
           op.getOperation(),
@@ -1498,17 +1549,19 @@ LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
           /*checkForUnity=*/true)))
     return failure();
 
-  auto multTensor = rewriter.create<mhlo::MulOp>(
+  auto multTensor = rewriter.create<chlo::BroadcastMulOp>(
       op->getLoc(),
       getTypeConverter()->convertType(op.getType()),
       self,
-      alphaTensor);
+      alphaTensor,
+      nullptr);
 
-  rewriter.replaceOpWithNewOp<mhlo::SubOp>(
+  rewriter.replaceOpWithNewOp<chlo::BroadcastSubOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
       otherTensor,
-      multTensor);
+      multTensor,
+      nullptr);
 
   return success();
 }
@@ -1621,7 +1674,6 @@ LogicalResult ConvertAtenOp<AtenTransposeIntOp>::matchAndRewrite(
       mhlo::getPermutedTensor(rewriter, op, adaptor.self(), permutations);
   rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
       op, getTypeConverter()->convertType(op.getType()), transposed);
-
   return success();
 }
 
@@ -2587,6 +2639,7 @@ class ConvertTorchToMhlo
       typeConverter, context);
     INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenMeanDimOp, mhlo::AddOp)
     INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenAnyDimOp, mhlo::OrOp)
+    INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenMaxDimValuesOp, mhlo::MaxOp)
 #undef INSERT_ONEDIM_REDUCTION_OP_PATTERN
 
 #define INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp)    \
@@ -2596,6 +2649,7 @@ class ConvertTorchToMhlo
     INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAllOp, mhlo::AndOp)
     INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAnyOp, mhlo::OrOp)
     INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenSumOp, mhlo::AddOp)
+    // INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenMaxOp, mhlo::MaxOp)
 #undef INSERT_ALLDIMS_REDUCTION_OP_PATTERN
 
     if (failed(applyPartialConversion(

@@ -14,13 +14,14 @@
 #include <ATen/Functions.h>
 #include <torch/csrc/jit/jit_log.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
-#include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_data.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 #include <torch/script.h>
+
 #include "common_utils/utils.h"
+#include "compiler/jit/torch/shape_analysis.h"
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
@@ -87,13 +88,14 @@ ExecutablePtr CompileToDiscExecutable(
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
   bool disable_disc = torch::blade::env::ReadBoolFromEnvVar(
       "TORCH_DISC_LTC_DISABLE_DISC", false);
+  GRAPH_DEBUG("Input graph:\n ", *graph);
   if (disable_disc) {
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);
   }
   EnhancementInputShape(graph, arguments);
   // Inference shape
-  torch::jit::PropagateInputShapes(graph);
+  torch::blade::PropagateInputShapes(graph);
   // cluster disc compitable nodes into a sub-graph
   GRAPH_DEBUG("before DiscFusion\n ", *graph);
   DiscFusion(graph);

@@ -887,6 +887,5 @@ mlir::Value getRollTensor(
       rewriter.getI64IntegerAttr(dim));
   return result;
 }
-
 } // namespace mhlo
 } // namespace mlir

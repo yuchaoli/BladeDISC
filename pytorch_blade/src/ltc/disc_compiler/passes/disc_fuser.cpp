@@ -33,6 +33,18 @@ c10::TypePtr getScalarTypePtr(at::ScalarType& typ) {
   TORCH_CHECK(false, "unsupported scalar type: ", typ);
 }
 
+bool missingCompleteType(TypePtr type) {
+  if (auto tensor_type = type->cast<TensorType>()) {
+    // if we found one missing value, we know that we are not going to able to
+    // generate a kernel, so we bail out;
+    if (!tensor_type->device().has_value() || !tensor_type->dim().has_value() ||
+        !tensor_type->scalarType().has_value()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Give:
 //  with prim::FusionGroup(
 //      %p0: Tensor,
@@ -78,11 +90,19 @@ bool IsDiscFusable(const torch::jit::Node* node) {
           input->node()->kind() != torch::prim::Constant) {
         return false;
       }
+      // to avoid unk dtype and rank
+      if (missingCompleteType(input->type())) {
+        return false;
+      }
     }
 
     for (auto& output : node->outputs()) {
       if (!output->type()->cast<c10::TensorType>())
         return false;
+      // to avoid unk dtype and rank
+      if (missingCompleteType(output->type())) {
+        return false;
+      }
     }
     return true;
   }

@@ -11,13 +11,17 @@
 
 #include "compiler/mlir/converters/torch_mlir_op_filter.h"
 #include <torch/script.h>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
+#include "common_utils/utils.h"
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 namespace torch {
 namespace blade {
-std::unordered_set<std::string> GetTorchMlirWhiteList();
+const std::unordered_set<std::string>& GetTorchMlirWhiteList();
 
 bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
@@ -32,9 +36,12 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
 }
 
 // clang-format off
-std::unordered_set<std::string> GetTorchMlirWhiteList() {
-  return std::unordered_set<std::string>{
+const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
+  static std::unordered_set<std::string> white_list{
       "aten::__and__",
+      "aten::_log_softmax",
+      "aten::_softmax",
+      "aten::_softmax_backward_data",
       "aten::add",
       "aten::addmm",
       "aten::unbind",
@@ -43,6 +50,7 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::chunk",
       "aten::contiguous",
       "aten::div",
+      "aten::dropout",
       "aten::eq",
       "aten::erf",
       "aten::exp",
@@ -52,9 +60,11 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::flip",
       "aten::floor_divide",
       "aten::gelu",
+      "aten::gelu_backward",
       "aten::glu",
       "aten::hardtanh",
       "aten::index_select",
+      "aten::layer_norm",
       "aten::leaky_relu",
       "aten::linear",
       "aten::lt",
@@ -62,6 +72,11 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::mean",
       "aten::mm",
       "aten::mul",
+      "aten::native_dropout",
+      "aten::native_dropout_backward",
+      "aten::native_layer_norm",
+      "aten::nll_loss_backward",
+      "aten::nll_loss_forward",
       "aten::ne",
       "aten::neg",
       "aten::neg",
@@ -72,15 +87,19 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::reshape",
       "aten::roll",
       "aten::rsqrt",
+      "aten::rsub",
       "aten::select",
       "aten::sigmoid",
       "aten::silu",
       "aten::size",
       "aten::slice",
+      "aten::softmax",
       "aten::squeeze",
       "aten::sub",
       "aten::sum",
       "aten::t",
+      "aten::tanh",
+      "aten::tanh_backward",
       "aten::to",
       "aten::to.dtype",
       "aten::transpose",
@@ -91,6 +110,20 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "prim::Constant",
       "prim::ListConstruct",
       "prim::ListUnpack"};
+
+  static std::once_flag flag;
+  std::call_once(flag, []() {
+      auto custom_ops = env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", "");
+      std::istringstream f(custom_ops);
+      std::string s;
+      std::cout << "User define white list: [";
+      while (getline(f, s, ';')) {
+          white_list.insert(s);
+          std::cout << s << ", ";
+      }
+      std::cout << "]" << std::endl;
+  });
+  return white_list;
 }
 // clang-format off
 
