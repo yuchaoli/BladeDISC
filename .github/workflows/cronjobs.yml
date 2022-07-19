@@ -33,7 +33,7 @@ jobs:
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
       device: gpu-t4
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      exec_command: cd pytorch_blade && bash ./benchmark/TorchBench/test_torch_bench.sh
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
       push_command: ""
       remote_dev_docker: bladedisc:disc-dev-pt-ngc
     secrets:
