@@ -11,7 +11,8 @@
 
 # !/bin/bash
 # install dependencies
-git-lfs
+export HOME=$(pwd)
+git lfs install --force
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 pip3 install librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
