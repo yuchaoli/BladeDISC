@@ -18,10 +18,10 @@ script_dir=$(cd $(dirname "$0"); pwd)
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 # setup for torchbenchmark
 git clone https://github.com/pytorch/benchmark.git --recursive torchbenchmark
-cd torchbenchmark && python install.py && cd ../
+cd torchbenchmark && python install.py 
 
 # setup for torchdynamo
-git clone https://github.com/pytorch/torchdynamo.git dynamo && pip install dynamo/
+cd $script_dir && git clone https://github.com/pytorch/torchdynamo.git dynamo && pip install dynamo/
 
 # dynamo frontend and disc backend
 python blade_bench.py --backend blade_disc_compiler -d cuda --isolate --float32 --skip-accuracy-check 2>&1 | tee speedup_blade.log
