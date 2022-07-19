@@ -11,7 +11,8 @@
 
 # !/bin/bash
 # install dependencies
-apt install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && pip install librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
+python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
+pip install librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
