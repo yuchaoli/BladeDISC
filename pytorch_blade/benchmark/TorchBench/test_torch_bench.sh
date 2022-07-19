@@ -11,8 +11,9 @@
 
 # !/bin/bash
 # install dependencies
+git-lfs
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
-pip3 install librosa pandas torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
+pip3 install librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
