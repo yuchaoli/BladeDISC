@@ -55,7 +55,7 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-${{ inputs.name }} \
+        docker build --no-cache -t disc-dev-${{ inputs.name }} \
           --build-arg BASEIMAGE=${{ inputs.base_image }} \
           ${{ inputs.extra_build_args }} \
           ${{ inputs.extra_envs }} \
@@ -63,7 +63,7 @@ jobs:
     - name: Run Job 
       run: |
         set -e
-        docker run --rm -t --user $(id -u):$(id -g) \
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
