@@ -16,7 +16,7 @@ echo $OLD_HOME
 
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 pip3 install -U pip
-pip3 install -q librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
+pip3 install -q librosa torchvision torchaudio torchtext pycocotools==2.0.3 --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
 # setup for torchbenchmark
