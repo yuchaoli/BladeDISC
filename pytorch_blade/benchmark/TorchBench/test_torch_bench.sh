@@ -23,7 +23,7 @@ BENCHMARK_DIR=$OLD_HOME/.cache/torchbenchmark
 echo $BENCHMARK_DIR
 export HOME=$(pwd)
 git lfs install --force
-if [ ! -d $BENCHMARK_DIR]; then
+if [ ! -d $BENCHMARK_DIR ]; then
     git clone -q https://github.com/pytorch/benchmark.git --recursive $BENCHMARK_DIR
 fi
 cd $BENCHMARK_DIR && git pull && git submodule update --init --recursive && python3 install.py
