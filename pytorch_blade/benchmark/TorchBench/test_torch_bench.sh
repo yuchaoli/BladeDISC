@@ -25,11 +25,11 @@ echo $benchmark_repo_dir
 if [ ! -d $benchmark_repo_dir ]; then
     git clone -q https://github.com/pytorch/benchmark.git --recursive $benchmark_repo_dir
 fi
-cd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force && git pull && git submodule update --init --recursive --depth 1 && python3 install.py
-
+cd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force && git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 # setup for torchdynamo
 echo $(pwd)
+ln -s $benchmark_repo_dir torchbenchmark 
 git clone -q https://github.com/pytorch/torchdynamo.git dynamo && pip3 install -q dynamo/
 
 # dynamo frontend and disc backend
