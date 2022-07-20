@@ -15,18 +15,17 @@ OLD_HOME=$HOME
 echo $OLD_HOME
 
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
+pip3 install -U pip
 pip3 install -q librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
 # setup for torchbenchmark
-BENCHMARK_DIR=$OLD_HOME/.cache/torchbenchmark
-echo $BENCHMARK_DIR
-export HOME=$(pwd)
-git lfs install --force
-if [ ! -d $BENCHMARK_DIR ]; then
-    git clone -q https://github.com/pytorch/benchmark.git --recursive $BENCHMARK_DIR
+benchmark_repo_dir=$OLD_HOME/.cache/torchbenchmark
+echo $benchmark_repo_dir
+if [ ! -d $benchmark_repo_dir ]; then
+    git clone -q https://github.com/pytorch/benchmark.git --recursive $benchmark_repo_dir
 fi
-cd $BENCHMARK_DIR && git pull && git submodule update --init --recursive && python3 install.py
+cd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force && git pull && git submodule update --init --recursive --depth 1 && python3 install.py
 
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 # setup for torchdynamo
